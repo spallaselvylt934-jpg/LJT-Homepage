@@ -17,6 +17,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      pages_enabled: ${{ steps.pages-status.outputs.enabled }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,14 +31,35 @@ jobs:
         run: bundle exec jekyll build --strict_front_matter
         env:
           JEKYLL_ENV: production
+      - name: Check generated page scope
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path('_site')
+          pages = {p.relative_to(root).as_posix() for p in root.rglob('*.html')}
+          assert pages == {'index.html', 'publications/index.html'}, f'Unexpected HTML pages: {sorted(pages)}'
+          print('PASS: only the existing About and Publications pages are built')
+          PY
+      - name: Check GitHub Pages availability
+        id: pages-status
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh api "repos/${GITHUB_REPOSITORY}/pages" > /dev/null 2>&1; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::The site was built, but GitHub Pages is not enabled or accessible. Repository-administration permission is required to activate Pages."
+            echo "### Homepage built successfully" >> "$GITHUB_STEP_SUMMARY"
+            echo "The built site is available in the github-pages artifact. Live deployment is skipped until GitHub Pages is enabled with GitHub Actions as the source in the repository's Settings > Pages. The workflow token cannot activate Pages itself." >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: Configure GitHub Pages
-        id: pages
+        if: steps.pages-status.outputs.enabled == 'true'
         uses: actions/configure-pages@v5
-        with:
-          enablement: true
       - name: Upload GitHub Pages artifact
         uses: actions/upload-pages-artifact@v3
   deploy:
+    if: needs.build.outputs.pages_enabled == 'true'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
