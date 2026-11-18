@@ -13,4 +13,4 @@ citation: 'Junteng Liu, Shiqi Chen, Yu Cheng, and Junxian He. (2024). &quot;On t
 
 **Venue:** EMNLP 2024
 
-**Code:** [Universal_Truthfulness_Hyperplane](https://github.com/Vicent0205/Universal_Truthfulness_Hyperplane)
+**Code:** Universal_Truthfulness_Hyperplane
